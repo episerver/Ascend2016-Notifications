@@ -1,0 +1,48 @@
+{
+    "env": {
+        "browser": true,
+        "amd": true,
+        "es6": true,
+        "node": true,
+        "mocha": true
+    },
+    "globals": {
+        "expect": true,
+        "sinon": true,
+        "module": true,
+        "console": true,
+        "doh": true
+    },
+    "rules": {
+        "array-bracket-spacing": [2, "never"],
+        "brace-style": 2,
+        "comma-dangle": [2, "never"],
+        "comma-style": [2, "last"],
+        "curly": [2, "all"],
+        "eol-last": 2,
+        "eqeqeq": [2, "smart"],
+        "indent": ["error", 4, {"SwitchCase": 1}],
+        "key-spacing": [2, { "afterColon": true }],
+        "keyword-spacing": 2,
+        "no-cond-assign": [2, "except-parens"],
+        "no-empty": 2,
+        "no-mixed-spaces-and-tabs": 2,
+        "no-trailing-spaces": 2,
+        "no-undef": 2,
+        "no-use-before-define": 2,
+        "no-unused-expressions": [2, { allowTernary : true, allowShortCircuit: true}],
+        "no-redeclare": 2,
+        "no-with": 2,
+        "quote-props": [2, "as-needed", { "keywords": true }],
+        "quotes": ["error", "double"],
+        "semi": ["error", "always"],
+        "space-before-blocks": [2, "always"],
+        "space-before-function-paren": [2, { "anonymous": "always", "named": "never" }],
+        "space-infix-ops": 2,
+        "space-in-parens": [2, "never"],
+        "space-return-throw-case": 0,
+        "space-unary-ops": 0,
+        "strict": 0
+    },
+    "root": true
+}

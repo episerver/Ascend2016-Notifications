@@ -271,6 +271,7 @@
     <Compile Include="Business\Rendering\TemplateCoordinator.cs" />
     <Compile Include="Business\SearchService.cs" />
     <Compile Include="Business\StructureMapDependencyResolver.cs" />
+    <Compile Include="Business\Twitter\Twitter.cs" />
     <Compile Include="Business\UIDescriptors\ContainerPageUIDescriptor.cs" />
     <Compile Include="Controllers\ContactBlockController.cs" />
     <Compile Include="Controllers\DefaultPageController.cs" />

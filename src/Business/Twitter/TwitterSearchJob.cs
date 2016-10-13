@@ -1,7 +1,13 @@
-﻿using System.Linq;
+﻿using System;
+using System.Globalization;
+using System.Linq;
+using System.Web;
+using EPiServer;
+using EPiServer.Core;
 using EPiServer.DataAbstraction;
 using EPiServer.PlugIn;
 using EPiServer.Scheduler;
+using EPiServer.Web.Routing;
 using Tweetinvi;
 
 namespace Ascend2016.Business.Twitter
@@ -49,15 +55,63 @@ namespace Ascend2016.Business.Twitter
             }
 
             //Add implementation
-            return GetTweet();
+            var page = GetLatestPublishedContent(DateTime.Now.AddDays(-120).ToString(CultureInfo.InvariantCulture));
+            if (page == null)
+                return "Fail...";
+
+            var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
+
+            var tweet = GetTweet(url);
+            return tweet ?? $"No tweet found with {url}";
         }
 
-        private string GetTweet()
+        private string GetTweet(string url)
         {
             //var tweet = Tweet.GetTweet(780929654924378112);
-            var tweet = Search.SearchTweets("https://medium.com/@shemag8/fuck-you-startup-world-ab6cc72fad0e");
+            //var tweet = Search.SearchTweets("https://medium.com/@shemag8/fuck-you-startup-world-ab6cc72fad0e");
+            var tweet = Search.SearchTweets(url);
 
             return tweet.FirstOrDefault()?.FullText;
+        }
+
+        private PageData GetLatestPublishedContent(string days)
+        {
+            var criterias = new PropertyCriteriaCollection();
+
+            var criteria = new PropertyCriteria
+            {
+                Condition = EPiServer.Filters.CompareCondition.GreaterThan,
+                Name = "PageChanged",
+                Type = PropertyDataType.Date,
+                Value = days,
+                Required = true
+            };
+
+            criterias.Add(criteria);
+
+            var newsPageItems = DataFactory.Instance.FindPagesWithCriteria(PageReference.StartPage, criterias);
+            return newsPageItems.FirstOrDefault();
+        }
+
+        private static string ExternalUrl(ContentReference contentLink, CultureInfo language)
+        {
+            // Borrowed from Henrik: http://stackoverflow.com/a/29934595/703921
+
+            var virtualPathArguments = new VirtualPathArguments {ForceCanonical = true};
+            var urlString = UrlResolver.Current.GetUrl(contentLink, language.Name, virtualPathArguments);
+
+            if (string.IsNullOrEmpty(urlString) || HttpContext.Current == null)
+            {
+                return urlString;
+            }
+
+            var uri = new Uri(urlString, UriKind.RelativeOrAbsolute);
+            if (uri.IsAbsoluteUri)
+            {
+                return urlString;
+            }
+
+            return new Uri(HttpContext.Current.Request.Url, uri).ToString();
         }
     }
 }

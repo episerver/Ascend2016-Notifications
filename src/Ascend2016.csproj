@@ -304,6 +304,7 @@
     <Compile Include="Business\Rendering\TemplateCoordinator.cs" />
     <Compile Include="Business\SearchService.cs" />
     <Compile Include="Business\StructureMapDependencyResolver.cs" />
+    <Compile Include="Business\Twitter\TwitterNotificationFormatter.cs" />
     <Compile Include="Business\Twitter\TwitterSearchJob.cs" />
     <Compile Include="Business\UIDescriptors\ContainerPageUIDescriptor.cs" />
     <Compile Include="Controllers\ContactBlockController.cs" />

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Web;
 using EPiServer;
 using EPiServer.Core;
@@ -92,6 +91,20 @@ namespace Ascend2016.Business.Twitter
 
         private bool NotifyPageAuthor(PageData page)
         {
+            // Anyone listening to this page's subscription?
+            //var task = _subscriptionService.Service.FindSubscribersAsync(new Uri("ascend://twitter/content")); // TODO: Why does this work??
+            //var task = _subscriptionService.Service.FindSubscribersAsync(new Uri(TwitterSubscription.SubscriptionKeyBase)); // TODO: Why does this NOT work??
+            //var a = new Uri(TwitterSubscription.SubscriptionKeyBase); // TODO: Why is this needed??
+            //var b = new Uri("ascend://twitter/content");
+            //var x = a == b;
+            var task = _subscriptionService.Service.FindSubscribersAsync(TwitterSubscription.SubscriptionKey(page.ContentLink));
+            task.Wait();
+            var recipients = task.Result.ToArray();
+            if (!recipients.Any())
+            {
+                return false;
+            }
+
             var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
             var tweets = GetTweets(url).ToArray();
 
@@ -119,7 +132,6 @@ namespace Ascend2016.Business.Twitter
             }
 
             // Send notification.
-            var recipients = new[] {new NotificationUser(page.ChangedBy)};
             var notificationMessage = CreateNotificationMessage("jojoh", recipients, page, currentShareCount);
             _notifier.Service.PostNotificationAsync(notificationMessage).Wait();
 

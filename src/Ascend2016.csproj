@@ -307,6 +307,7 @@
     <Compile Include="Business\Twitter\TweetedPageViewModel.cs" />
     <Compile Include="Business\Twitter\TwitterNotificationFormatter.cs" />
     <Compile Include="Business\Twitter\TwitterSearchJob.cs" />
+    <Compile Include="Business\Twitter\TwitterSubscription.cs" />
     <Compile Include="Business\UIDescriptors\ContainerPageUIDescriptor.cs" />
     <Compile Include="Controllers\ContactBlockController.cs" />
     <Compile Include="Controllers\DefaultPageController.cs" />

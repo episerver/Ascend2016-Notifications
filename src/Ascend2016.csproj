@@ -305,7 +305,9 @@
     <Compile Include="Business\SearchService.cs" />
     <Compile Include="Business\StructureMapDependencyResolver.cs" />
     <Compile Include="Business\Twitter\TweetedPageViewModel.cs" />
+    <Compile Include="Business\Twitter\TwitterInitialize.cs" />
     <Compile Include="Business\Twitter\TwitterNotificationFormatter.cs" />
+    <Compile Include="Business\Twitter\IftttNotificationProvider.cs" />
     <Compile Include="Business\Twitter\TwitterSearchJob.cs" />
     <Compile Include="Business\Twitter\TwitterSubscription.cs" />
     <Compile Include="Business\UIDescriptors\ContainerPageUIDescriptor.cs" />

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using EPiServer.Framework.Serialization;
 using EPiServer.Notification;
 using EPiServer.ServiceLocation;
@@ -33,17 +34,31 @@ namespace Ascend2016.Business.Twitter
 
         public IEnumerable<FormatterNotificationMessage> FormatMessages(IEnumerable<FormatterNotificationMessage> notifications, string recipient, NotificationFormat format, string channelName)
         {
-            return notifications;
+            return notifications
+                    // Remove duplicates // TODO: This isn't always needed, but I'm unsure of what caused me to get previously sent notifications over and over.
+                    .GroupBy(x => x.Content)
+                    .Select(x => x.First())
+                    // Format message content
+                    .Select(FormatMessageContent)
+                    .ToArray();
         }
 
-        public UserNotificationMessage FormatUserMessage(UserNotificationMessage notification)
+        public UserNotificationMessage FormatUserMessage(UserNotificationMessage message)
         {
-            var data = _objectSerializer.Deserialize<TweetedPageViewModel>(notification.Content);
+            var data = _objectSerializer.Deserialize<TweetedPageViewModel>(message.Content);
 
-            notification.Subject = $@"Your article ""{data.PageName}"" is going viral!";
-            notification.Content = $"Your article has {data.ShareCount} tweets and retweets!";
-            notification.Link = data.ContentLink;
-            return notification;
+            message.Subject = $@"Your article ""{data.PageName}"" is going viral!";
+            message.Content = $"Your article has {data.ShareCount} tweets and retweets!";
+            message.Link = data.ContentLink;
+            return message;
+        }
+
+        private FormatterNotificationMessage FormatMessageContent(FormatterNotificationMessage message)
+        {
+            var data = _objectSerializer.Deserialize<TweetedPageViewModel>(message.Content);
+
+            message.Content = $@"Your article ""{data.PageName}"" has {data.ShareCount} tweets and retweets!";
+            return message;
         }
     }
 }

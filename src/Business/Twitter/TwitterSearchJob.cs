@@ -17,23 +17,105 @@ using Tweetinvi.Core.Interfaces;
 
 namespace Ascend2016.Business.Twitter
 {
+    /// <summary>
+    /// Scheduled job that searches Twitter for shared <see cref="PageData"/> and notifies the users subscribing to it.
+    /// </summary>
     [ScheduledPlugIn(DisplayName = "Twitter Search", IntervalLength = 10, IntervalType = ScheduledIntervalType.Seconds)]
     public class TwitterSearchJob : ScheduledJobBase
     {
-        private static readonly Dictionary<string, IEnumerable<ITweet>> TwitterCache = new Dictionary<string, IEnumerable<ITweet>>();
-
         private readonly Injected<INotifier> _notifier;
         private readonly Injected<ISubscriptionService> _subscriptionService;
         private readonly IObjectSerializer _objectSerializer;
+
+        /// <summary>
+        /// Will be called periodically with every page that's been recently published.
+        /// It will then notify the subscribers about their page's retweet count.
+        /// </summary>
+        /// <param name="page">The relevant page to check for tweet count</param>
+        /// <returns>True if the subscribers were notified</returns>
+        private bool NotifyPageSubscribers(PageData page)
+        {
+            // Get Twitter shares for the page
+            var lastShareCount = CountShares(OldTweets(page));
+            var currentShareCount = CountShares(GetUpdatedTweets(page));
+
+            // UserNotifications are sent directly and can't be batched in the formatter,
+            // so we only notify if the tweet count doubled.
+            if (currentShareCount <= lastShareCount * 2)
+            {
+                return false;
+            }
+
+            // Find relevant notification receivers with the Subscription service
+            var subscriptionKey = TwitterSubscription.SubscriptionKey(page.ContentLink);
+            var recipients = _subscriptionService.Service.FindSubscribersAsync(subscriptionKey).Result.ToArray();
+            // If there's no one to notify we can skip the rest
+            if (!recipients.Any())
+            {
+                return false;
+            }
+
+            // Create notification
+            const string sender = "jojoh";
+            var notificationMessage = CreateNotificationMessage(sender, recipients, page, currentShareCount);
+
+            // Send the notification
+            _notifier.Service.PostNotificationAsync(notificationMessage).Wait();
+
+            return true;
+        }
+
+        /// <summary>
+        /// Creates the notification message.
+        /// </summary>
+        /// <param name="sender">Author of the message</param>
+        /// <param name="recipients">Recipients of the message</param>
+        /// <param name="page">The page shared on Twitter</param>
+        /// <param name="shareCount">Number of tweets and retweets for the page</param>
+        /// <returns>NotificationMessage with serialized data in the Content property</returns>
+        private NotificationMessage CreateNotificationMessage(string sender, IEnumerable<INotificationUser> recipients, PageData page, int shareCount)
+        {
+            var tweetData = new TweetedPageViewModel
+            {
+                PageName = page.Name,
+                ShareCount = shareCount,
+                ContentLink = new Uri("epi.cms.contentdata:///" + page.ContentLink)
+            };
+            var serializedViewModel = _objectSerializer.Serialize(tweetData);
+
+            return new NotificationMessage
+            {
+                ChannelName = TwitterNotificationFormatter.ChannelName,
+                TypeName = "Tweet",
+                Sender = new NotificationUser(sender),
+                Recipients = recipients,
+                Content = serializedViewModel
+            };
+        }
+
+        #region Not important for Notifications API demonstration
+
         private bool _stopSignaled;
+        private static readonly Dictionary<string, IEnumerable<ITweet>> TwitterCache = new Dictionary<string, IEnumerable<ITweet>>();
 
         public TwitterSearchJob()
         {
+            IsStoppable = true;
+
             var objectSerializerFactory = new Injected<IObjectSerializerFactory>();
             _objectSerializer = objectSerializerFactory.Service.GetSerializer(KnownContentTypes.Json);
 
-            IsStoppable = true;
+            SetupTwitterAppAccount();
+        }
 
+        public override void Stop()
+        {
+            _stopSignaled = true;
+        }
+
+        // TODO: Move this to TwitterInitialize?
+        private static void SetupTwitterAppAccount()
+        {
             var consumerKey = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerKey"];
             var consumerSecret = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerSecret"];
 
@@ -44,42 +126,30 @@ namespace Ascend2016.Business.Twitter
             Auth.InitializeApplicationOnlyCredentials(appCreds);
         }
 
-        /// <summary>
-        /// Called when a user clicks on Stop for a manually started job, or when ASP.NET shuts down.
-        /// </summary>
-        public override void Stop()
-        {
-            _stopSignaled = true;
-        }
-
-        /// <summary>
-        /// Called when a scheduled job executes
-        /// </summary>
-        /// <returns>A status message to be stored in the database log and visible from admin mode</returns>
         public override string Execute()
         {
-            //Call OnStatusChanged to periodically notify progress of job for manually started jobs
+            // Call OnStatusChanged to periodically notify progress of job for manually started jobs
             OnStatusChanged($"Starting execution of {GetType()}");
 
-            //For long running jobs periodically check if stop is signaled and if so stop execution
+            // For long running jobs periodically check if stop is signaled and if so stop execution
             if (_stopSignaled)
             {
                 return "Stop of job was called";
             }
 
-            //Add implementation
+            // Get the latest published pages
             const int numDaysBacklog = 120;
-            var pages = GetLatestPublishedContent(DateTime.Now.AddDays(-numDaysBacklog).ToString(CultureInfo.InvariantCulture)).ToArray();
+            var pages = GetLatestPublishedContent(DateTime.Now.AddDays(-numDaysBacklog)).ToArray();
             if (!pages.Any())
             {
                 return $"No pages published in the last {numDaysBacklog} days.";
             }
 
+            // Send notifications to everyone subscribing to these pages
             var notificationsCount = 0;
-
             foreach (var page in pages)
             {
-                if (NotifyPageAuthor(page))
+                if (NotifyPageSubscribers(page))
                 {
                     notificationsCount++;
                 }
@@ -89,53 +159,10 @@ namespace Ascend2016.Business.Twitter
             return $"Found {pages.Length} pages that were tweeted {totalShareCount} times. Sent {notificationsCount} notifications.";
         }
 
-        private bool NotifyPageAuthor(PageData page)
+        private static ITweet[] OldTweets(PageData page)
         {
-            // Anyone listening to this page's subscription?
-            //var task = _subscriptionService.Service.FindSubscribersAsync(new Uri("ascend://twitter/content")); // TODO: Why does this work??
-            //var task = _subscriptionService.Service.FindSubscribersAsync(new Uri(TwitterSubscription.SubscriptionKeyBase)); // TODO: Why does this NOT work??
-            //var a = new Uri(TwitterSubscription.SubscriptionKeyBase); // TODO: Why is this needed??
-            //var b = new Uri("ascend://twitter/content");
-            //var x = a == b;
-            var task = _subscriptionService.Service.FindSubscribersAsync(TwitterSubscription.SubscriptionKey(page.ContentLink));
-            task.Wait();
-            var recipients = task.Result.ToArray();
-            if (!recipients.Any())
-            {
-                return false;
-            }
-
             var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
-            var tweets = GetTweets(url).ToArray();
-
-            if (!tweets.Any())
-            {
-                return false;
-            }
-
-            // Cache handling
-            var cachedTweets = TwitterCache.ContainsKey(url) ? TwitterCache[url].ToArray() : new ITweet[0];
-            var union = tweets
-                .Union(cachedTweets) // ITweet doesn't support comparison so we have to filter out duplicates ourselves for now.
-                .GroupBy(tweet => tweet.Id)
-                .Select(group => group.First())
-                .ToArray();
-            var currentShareCount = CountShares(union);
-
-            TwitterCache[url] = union;
-
-            // Simple throttle rule. There should be at least twice as many tweets as the last notification.
-            var lastShareCount = CountShares(cachedTweets);
-            if (currentShareCount <= lastShareCount * 2)
-            {
-                return false;
-            }
-
-            // Send notification.
-            var notificationMessage = CreateNotificationMessage("jojoh", recipients, page, currentShareCount);
-            _notifier.Service.PostNotificationAsync(notificationMessage).Wait();
-
-            return true;
+            return TwitterCache.ContainsKey(url) ? TwitterCache[url].ToArray() : new ITweet[0];
         }
 
         private static int CountShares(IEnumerable<ITweet> tweets)
@@ -144,16 +171,28 @@ namespace Ascend2016.Business.Twitter
             return tweetsArray.Length + tweetsArray.Sum(x => x.RetweetCount);
         }
 
-        private static IEnumerable<ITweet> GetTweets(string url)
+        private static IEnumerable<ITweet> GetUpdatedTweets(PageData page)
         {
-            var tweets = new[] { Tweet.GetTweet(780929654924378112) };
+            // Search Twitter for URL's of the page.
+            // Note: For demo purposes I can uncomment these for searches I know will return results.
+            //var tweets = new[] { Tweet.GetTweet(780929654924378112) };
             //var tweets = Search.SearchTweets("https://medium.com/@shemag8/fuck-you-startup-world-ab6cc72fad0e");
-            //var tweets = Search.SearchTweets(url);
+            var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
+            var tweets = Search.SearchTweets(url).ToArray();
+
+            // Cache handling. Twitter only gives the most recent tweets and we want to accumulate them to give a better total retweet count.
+            var cachedTweets = OldTweets(page);
+            var union = tweets
+                .Union(cachedTweets) // ITweet doesn't support comparison so we have to filter out duplicates ourselves for now.
+                .GroupBy(tweet => tweet.Id)
+                .Select(group => group.First())
+                .ToArray();
+            TwitterCache[url] = union;
 
             return tweets;
         }
 
-        private static IEnumerable<PageData> GetLatestPublishedContent(string days)
+        private static IEnumerable<PageData> GetLatestPublishedContent(DateTime daysBack)
         {
             var criterias = new PropertyCriteriaCollection
             {
@@ -162,22 +201,15 @@ namespace Ascend2016.Business.Twitter
                     Condition = EPiServer.Filters.CompareCondition.GreaterThan,
                     Name = "PageChanged",
                     Type = PropertyDataType.Date,
-                    Value = days,
+                    Value = daysBack.ToString(CultureInfo.InvariantCulture),
                     Required = true
-                },
-                //new PropertyCriteria
-                //{
-                //    Condition = EPiServer.Filters.CompareCondition.NotEqual,
-                //    Name = "ChangedBy",
-                //    Type = PropertyDataType.String,
-                //    Value = string.Empty,
-                //    Required = true
-                //}
+                }
             };
 
-
-            var newsPageItems = DataFactory.Instance.FindPagesWithCriteria(PageReference.StartPage, criterias)
-                .Where(x => !string.IsNullOrEmpty(x.ChangedBy)); // Can't use PropertyCriteria for this? See my attempt above.
+            var newsPageItems = DataFactory.Instance
+                .FindPagesWithCriteria(PageReference.StartPage, criterias)
+                // Only keep those with a user set otherwise the demo won't show anything. (also: PropertyCriteria can only search for null but we don't want empty strings either)
+                .Where(x => !string.IsNullOrEmpty(x.ChangedBy));
             return newsPageItems;
         }
 
@@ -185,7 +217,7 @@ namespace Ascend2016.Business.Twitter
         {
             // Borrowed from Henrik: http://stackoverflow.com/a/29934595/703921
 
-            var virtualPathArguments = new VirtualPathArguments {ForceCanonical = true};
+            var virtualPathArguments = new VirtualPathArguments { ForceCanonical = true };
             var urlString = UrlResolver.Current.GetUrl(contentLink, language.Name, virtualPathArguments);
 
             if (string.IsNullOrEmpty(urlString) || HttpContext.Current == null)
@@ -202,31 +234,6 @@ namespace Ascend2016.Business.Twitter
             return new Uri(HttpContext.Current.Request.Url, uri).ToString();
         }
 
-        /// <summary>
-        /// Creates andthe notification message
-        /// </summary>
-        /// <param name="sender">Author of the message</param>
-        /// <param name="recipients">Recipients of the message</param>
-        /// <param name="page">The page shared on Twitter</param>
-        /// <param name="shareCount">Number of tweets and retweets for <see cref="page"/>page</param>
-        /// <returns></returns>
-        private NotificationMessage CreateNotificationMessage(string sender, IEnumerable<INotificationUser> recipients, PageData page, int shareCount)
-        {
-            var tweetData = new TweetedPageViewModel
-            {
-                PageName = page.Name,
-                ShareCount = shareCount,
-                ContentLink = new Uri("epi.cms.contentdata:///" + page.ContentLink)
-            };
-
-            return new NotificationMessage
-            {
-                ChannelName = TwitterNotificationFormatter.ChannelName,
-                TypeName = "Tweet",
-                Sender = new NotificationUser(sender),
-                Recipients = recipients,
-                Content = _objectSerializer.Serialize(tweetData)
-            };
-        }
+        #endregion
     }
 }

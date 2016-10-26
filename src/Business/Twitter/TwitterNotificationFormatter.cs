@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using EPiServer.Framework.Serialization;
 using EPiServer.Notification;
@@ -14,35 +15,65 @@ namespace Ascend2016.Business.Twitter
     {
         private readonly IObjectSerializer _objectSerializer;
 
-        public TwitterNotificationFormatter(IObjectSerializer objectSerializer)
-        {
-            _objectSerializer = objectSerializer;
-        }
-
-        // This isn't meant to be here by design, but forced by necessity to have a channel name written down somewhere as a constant.
+        // This doesn't have to be here, but it's convenient.
         public const string ChannelName = "epi.ascend2016.twitter.channel";
 
-        /// <summary>
-        /// Gets the list of channels supported by this formatter
-        /// </summary>
+        /// Implements <see cref="INotificationFormatter"/>
         public IEnumerable<string> SupportedChannelNames => new[] { ChannelName };
-
-        /// <summary>
-        /// Gets the name of the formatter
-        /// </summary>
         public string FormatterName => "epi.ascend2016.twitter.formatter";
 
-        public IEnumerable<FormatterNotificationMessage> FormatMessages(IEnumerable<FormatterNotificationMessage> notifications, string recipient, NotificationFormat format, string channelName)
+        /// <summary>
+        /// Implements <see cref="INotificationFormatter"/>
+        /// Delayed notification. In our demo handled by <see cref="IftttNotificationProvider"/>.
+        /// </summary>
+        /// <param name="notifications">Notifications to send out.</param>
+        /// <param name="recipient">Recipient of the notification. Transformed and filtered by <see cref="IftttNotificationProvider"/>.</param>
+        /// <param name="format">Parameters for supported format by <see cref="IftttNotificationProvider"/></param>
+        /// <param name="channelName">Channel name, but we only support one so it's ignored here.</param>
+        /// <returns>The formatted messages.</returns>
+        public IEnumerable<FormatterNotificationMessage> FormatMessages(
+            IEnumerable<FormatterNotificationMessage> notifications,
+            string recipient,
+            NotificationFormat format,
+            string channelName)
         {
-            return notifications
-                    // Remove duplicates // TODO: This isn't always needed, but I'm unsure of what caused me to get previously sent notifications over and over.
-                    .GroupBy(x => x.Content)
-                    .Select(x => x.First())
-                    // Format message content
-                    .Select(FormatMessageContent)
-                    .ToArray();
+            // Join messages with the same content.
+            foreach (var group in notifications.GroupBy(x => x.Content))
+            {
+                // Use the last message
+                var lastMessage = group.Last();
+
+                // Get the serialized content data
+                var data = _objectSerializer.Deserialize<TweetedPageViewModel>(lastMessage.Content);
+
+                // Respect the providers Format request. In our case it's the MaxLength.
+                var formattedContent = $@"Your article ""{data.PageName}"" has {data.ShareCount} tweets and retweets!";
+                if (format.MaxLength.HasValue)
+                {
+                    formattedContent = formattedContent.Substring(0, Math.Min(formattedContent.Length, format.MaxLength.Value));
+                }
+
+                // Make sure to get all ID's, to mark them as processed (otherwise the dispatcher will try again with them)
+                var formattedMessage = new FormatterNotificationMessage(group.SelectMany(y => y.ContainedIDs))
+                // Copy over the other properties, and set the formatted content
+                {
+                    Subject = lastMessage.Subject,
+                    Category = lastMessage.Category,
+                    Content = formattedContent,
+                    SenderName = lastMessage.SenderName,
+                    TypeName = lastMessage.TypeName
+                };
+
+                yield return formattedMessage;
+            }
         }
 
+        /// <summary>
+        /// Implements <see cref="IUserNotificationFormatter"/>
+        /// Instant user notification. It's displayed in the Editor view (bell icon).
+        /// </summary>
+        /// <param name="message">Message to be formatted.</param>
+        /// <returns>The formatted message.</returns>
         public UserNotificationMessage FormatUserMessage(UserNotificationMessage message)
         {
             var data = _objectSerializer.Deserialize<TweetedPageViewModel>(message.Content);
@@ -53,12 +84,13 @@ namespace Ascend2016.Business.Twitter
             return message;
         }
 
-        private FormatterNotificationMessage FormatMessageContent(FormatterNotificationMessage message)
-        {
-            var data = _objectSerializer.Deserialize<TweetedPageViewModel>(message.Content);
+        #region Not important for Notifications API demonstration
 
-            message.Content = $@"Your article ""{data.PageName}"" has {data.ShareCount} tweets and retweets!";
-            return message;
+        public TwitterNotificationFormatter(IObjectSerializer objectSerializer)
+        {
+            _objectSerializer = objectSerializer;
         }
+
+        #endregion
     }
 }

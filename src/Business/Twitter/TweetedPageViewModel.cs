@@ -2,6 +2,9 @@
 
 namespace Ascend2016.Business.Twitter
 {
+    /// <summary>
+    /// Simple view model for storing data used by the formatters.
+    /// </summary>
     public struct TweetedPageViewModel
     {
         public string PageName;

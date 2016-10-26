@@ -1,64 +1,83 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using EPiServer.Notification;
 using EPiServer.ServiceLocation;
 
 namespace Ascend2016.Business.Twitter
 {
+    /// <summary>
+    /// Custom provider for sending messages through IFTTT, using
+    /// their Maker-channel. This requires all users to have one and
+    /// include their key in <see cref="TwitterInitialize"/>.
+    /// </summary>
     [ServiceConfiguration(typeof(INotificationProvider))]
     public class IftttNotificationProvider : INotificationProvider, INotificationProviderStatus
     {
+        // This doesn't have to be here, but it's convenient.
         public const string Name = "IftttNotificationProvider";
+
+        /// Implements <see cref="INotificationProvider"/>
         public string ProviderName => Name;
+        /// Implements <see cref="INotificationProviderStatus"/>
+        public bool IsDisabled => DateTime.Now.Year < 2007;
+        /// Implements <see cref="INotificationProviderStatus"/>
+        public string DisabledReason => "The iPhone isn't released yet.";
 
-        private const string IftttUri = "https://maker.ifttt.com/trigger/tweets/with/key";
-
+        /// <summary>
+        /// Implements <see cref="INotificationProvider"/>.
+        /// Supported format by this provider. The formatter will use it to properly format the messages.
+        /// </summary>
+        /// <returns>The supported format.</returns>
         public NotificationFormat GetProviderFormat()
         {
             return new NotificationFormat { MaxLength = 140, SupportsHtml = false };
         }
 
+        /// <summary>
+        /// Implements <see cref="INotificationProvider"/>.
+        /// Sends messages to the IFTTT Maker-channel.
+        /// </summary>
+        /// <param name="messages">Messages to send. Already formatted by <see cref="TwitterNotificationFormatter"/>.</param>
+        /// <param name="succeededAction">Callback to be called for each sent message.</param>
+        /// <param name="failedAction">Callback to be called for each message that failed to send.</param>
         public void Send(IEnumerable<ProviderNotificationMessage> messages,
             Action<ProviderNotificationMessage> succeededAction,
             Action<ProviderNotificationMessage, Exception> failedAction)
         {
-            messages = messages
-                // No point in sending to no recievers
-                .Where(x => x.RecipientAddresses.Any()); // TODO: Is this unnecessary?
-
             using (var httpClient = new HttpClient())
             {
                 foreach (var message in messages)
                 {
+                    // Recipient is already converted to Maker-keys, so they can be used as-is without filtering or converting.
                     foreach (var recipient in message.RecipientAddresses)
                     {
-                        NotifyPageAuthor(httpClient, message, recipient, succeededAction, failedAction);
+                        try
+                        {
+                            SendToIftttMakerChannel(httpClient, message, recipient);
+                            succeededAction(message);
+                        }
+                        catch (Exception e)
+                        {
+                            failedAction(message, e);
+                        }
                     }
                 }
             }
         }
 
-        private static void NotifyPageAuthor(HttpClient httpClient, ProviderNotificationMessage message, string recipient,
-            Action<ProviderNotificationMessage> succeededAction, Action<ProviderNotificationMessage, Exception> failedAction)
-        {
-            try
-            {
-                var uri = $"{IftttUri}/{recipient}?value1={message.Content}";
-                var response = httpClient.GetAsync(uri).Result;
-                response.EnsureSuccessStatusCode();
+        #region Not important for Notifications API demonstration
 
-                succeededAction(message);
-            }
-            catch (Exception e)
-            {
-                failedAction(message, e);
-            }
+        private const string IftttUri = "https://maker.ifttt.com/trigger/tweets/with/key";
+
+        private static void SendToIftttMakerChannel(HttpClient httpClient, ProviderNotificationMessage message, string recipient)
+        {
+            var uri = $"{IftttUri}/{recipient}?value1={message.Content}";
+            var response = httpClient.GetAsync(uri).Result;
+            // Throw an exception if the call failed.
+            response.EnsureSuccessStatusCode();
         }
 
-        public bool IsDisabled => DateTime.Now.Year < 2007;
-
-        public string DisabledReason => "The iPhone isn't released yet.";
+        #endregion
     }
 }

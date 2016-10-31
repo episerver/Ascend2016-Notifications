@@ -4,12 +4,12 @@ using System.Net.Http;
 using EPiServer.Notification;
 using EPiServer.ServiceLocation;
 
-namespace Ascend2016.Business.Twitter
+namespace Ascend2016.Business.NotificationDemo
 {
     /// <summary>
     /// Custom provider for sending messages through IFTTT, using
     /// their Maker-channel. This requires all users to have one and
-    /// include their key in <see cref="TwitterInitialize"/>.
+    /// include their key in <see cref="NotificationInitialize"/>.
     /// </summary>
     [ServiceConfiguration(typeof(INotificationProvider))]
     public class IftttNotificationProvider : INotificationProvider, INotificationProviderStatus
@@ -38,7 +38,7 @@ namespace Ascend2016.Business.Twitter
         /// Implements <see cref="INotificationProvider"/>.
         /// Sends messages to the IFTTT Maker-channel.
         /// </summary>
-        /// <param name="messages">Messages to send. Already formatted by <see cref="TwitterNotificationFormatter"/>.</param>
+        /// <param name="messages">Messages to send. Already formatted by <see cref="NotificationFormatter"/>.</param>
         /// <param name="succeededAction">Callback to be called for each sent message.</param>
         /// <param name="failedAction">Callback to be called for each message that failed to send.</param>
         public void Send(IEnumerable<ProviderNotificationMessage> messages,

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ascend2016.Business.Twitter
+namespace Ascend2016.Business.NotificationDemo
 {
     /// <summary>
     /// Simple view model for storing data used by the formatters.

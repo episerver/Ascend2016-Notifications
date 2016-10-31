@@ -15,7 +15,7 @@ using EPiServer.Web.Routing;
 using Tweetinvi;
 using Tweetinvi.Core.Interfaces;
 
-namespace Ascend2016.Business.Twitter
+namespace Ascend2016.Business.NotificationDemo
 {
     /// <summary>
     /// Scheduled job that searches Twitter for shared <see cref="PageData"/> and notifies the users subscribing to it.
@@ -47,7 +47,7 @@ namespace Ascend2016.Business.Twitter
             }
 
             // Find relevant notification receivers with the Subscription service
-            var subscriptionKey = TwitterSubscription.SubscriptionKey(page.ContentLink);
+            var subscriptionKey = PageSubscription.SubscriptionKey(page.ContentLink);
             var recipients = _subscriptionService.Service.FindSubscribersAsync(subscriptionKey).Result.ToArray();
             // If there's no one to notify we can skip the rest
             if (!recipients.Any())
@@ -85,7 +85,7 @@ namespace Ascend2016.Business.Twitter
 
             return new NotificationMessage
             {
-                ChannelName = TwitterNotificationFormatter.ChannelName,
+                ChannelName = NotificationFormatter.ChannelName,
                 TypeName = "Tweet",
                 Sender = new NotificationUser(sender),
                 Recipients = recipients,
@@ -113,7 +113,7 @@ namespace Ascend2016.Business.Twitter
             _stopSignaled = true;
         }
 
-        // TODO: Move this to TwitterInitialize?
+        // TODO: Move this to NotificationInitialize?
         private static void SetupTwitterAppAccount()
         {
             var consumerKey = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerKey"];

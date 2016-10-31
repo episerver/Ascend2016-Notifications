@@ -5,13 +5,13 @@ using EPiServer.Framework.Serialization;
 using EPiServer.Notification;
 using EPiServer.ServiceLocation;
 
-namespace Ascend2016.Business.Twitter
+namespace Ascend2016.Business.NotificationDemo
 {
     /// <summary>
     /// Handling formation of notifications and instant user notifications.
     /// </summary>
     [ServiceConfiguration(typeof(INotificationFormatter))]
-    public class TwitterNotificationFormatter : INotificationFormatter, IUserNotificationFormatter
+    public class NotificationFormatter : INotificationFormatter, IUserNotificationFormatter
     {
         private readonly IObjectSerializer _objectSerializer;
 
@@ -86,7 +86,7 @@ namespace Ascend2016.Business.Twitter
 
         #region Not important for Notifications API demonstration
 
-        public TwitterNotificationFormatter(IObjectSerializer objectSerializer)
+        public NotificationFormatter(IObjectSerializer objectSerializer)
         {
             _objectSerializer = objectSerializer;
         }

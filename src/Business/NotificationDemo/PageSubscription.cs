@@ -4,13 +4,13 @@ using EPiServer.Framework;
 using EPiServer.Framework.Initialization;
 using EPiServer.Notification;
 
-namespace Ascend2016.Business.Twitter
+namespace Ascend2016.Business.NotificationDemo
 {
     /// <summary>
     /// Set up subscriptions so editors receive notifications for published content they contributed too.
     /// </summary>
     [ModuleDependency(typeof(EPiServer.Web.InitializationModule))]
-    public class TwitterSubscription : IInitializableModule
+    public class PageSubscription : IInitializableModule
     {
         private IContentEvents _contentEvents;
         private ISubscriptionService _subscriptionService;

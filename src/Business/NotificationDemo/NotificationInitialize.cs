@@ -30,6 +30,7 @@ namespace Ascend2016.Business.NotificationDemo
                 NotificationFormatter.ChannelName,
                 IftttNotificationProvider.Name,
                 // Fetch IFTTT keys for users that have one. Others will be filtered out and not sent to the formatter as receivers.
+                // Could be used as user preferences so only certain users that wants this provider.
                 x => _userIftttKeys.ContainsKey(x) ? _userIftttKeys[x] : null);
         }
 

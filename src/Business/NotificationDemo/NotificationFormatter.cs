@@ -10,6 +10,7 @@ namespace Ascend2016.Business.NotificationDemo
     /// <summary>
     /// Handling formation of notifications and instant user notifications.
     /// </summary>
+    /// TODO: Implement as two classes.
     [ServiceConfiguration(typeof(INotificationFormatter))]
     public class NotificationFormatter : INotificationFormatter, IUserNotificationFormatter
     {
@@ -38,7 +39,8 @@ namespace Ascend2016.Business.NotificationDemo
             string channelName)
         {
             // Join messages with the same content.
-            foreach (var group in notifications.GroupBy(x => x.Content))
+            var groupedMessages = notifications.GroupBy(x => x.Content);
+            foreach (var group in groupedMessages)
             {
                 // Use the last message
                 var lastMessage = group.Last();
@@ -57,11 +59,7 @@ namespace Ascend2016.Business.NotificationDemo
                 var formattedMessage = new FormatterNotificationMessage(group.SelectMany(y => y.ContainedIDs))
                 // Copy over the other properties, and set the formatted content
                 {
-                    Subject = lastMessage.Subject,
-                    Category = lastMessage.Category,
                     Content = formattedContent,
-                    SenderName = lastMessage.SenderName,
-                    TypeName = lastMessage.TypeName
                 };
 
                 yield return formattedMessage;

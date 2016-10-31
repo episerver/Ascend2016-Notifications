@@ -23,6 +23,7 @@ namespace Ascend2016.Business.NotificationDemo
     [ScheduledPlugIn(DisplayName = "Twitter Search", IntervalLength = 10, IntervalType = ScheduledIntervalType.Seconds)]
     public class TwitterSearchJob : ScheduledJobBase
     {
+        private const string Sender = "jojoh";
         private readonly Injected<INotifier> _notifier;
         private readonly Injected<ISubscriptionService> _subscriptionService;
         private readonly IObjectSerializer _objectSerializer;
@@ -56,8 +57,7 @@ namespace Ascend2016.Business.NotificationDemo
             }
 
             // Create notification
-            const string sender = "jojoh";
-            var notificationMessage = CreateNotificationMessage(sender, recipients, page, currentShareCount);
+            var notificationMessage = CreateNotificationMessage(Sender, recipients, page, currentShareCount);
 
             // Send the notification
             _notifier.Service.PostNotificationAsync(notificationMessage).Wait();
@@ -86,7 +86,7 @@ namespace Ascend2016.Business.NotificationDemo
             return new NotificationMessage
             {
                 ChannelName = NotificationFormatter.ChannelName,
-                TypeName = "Tweet",
+                TypeName = "TwitterShares",
                 Sender = new NotificationUser(sender),
                 Recipients = recipients,
                 Content = serializedViewModel
@@ -173,12 +173,18 @@ namespace Ascend2016.Business.NotificationDemo
 
         private static IEnumerable<ITweet> GetUpdatedTweets(PageData page)
         {
+            // TODO: Search for hashtag instead? My page won't be public during demo.
             // Search Twitter for URL's of the page.
             // Note: For demo purposes I can uncomment these for searches I know will return results.
             //var tweets = new[] { Tweet.GetTweet(780929654924378112) };
             //var tweets = Search.SearchTweets("https://medium.com/@shemag8/fuck-you-startup-world-ab6cc72fad0e");
             var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
-            var tweets = Search.SearchTweets(url).ToArray();
+            var tweets = Search.SearchTweets(url)?.ToArray();
+
+            if (tweets == null)
+            {
+                return Enumerable.Empty<ITweet>();
+            }
 
             // Cache handling. Twitter only gives the most recent tweets and we want to accumulate them to give a better total retweet count.
             var cachedTweets = OldTweets(page);

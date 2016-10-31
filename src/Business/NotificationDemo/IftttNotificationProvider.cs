@@ -49,7 +49,8 @@ namespace Ascend2016.Business.NotificationDemo
             {
                 foreach (var message in messages)
                 {
-                    // Recipient is already converted to Maker-keys, so they can be used as-is without filtering or converting.
+                    // Recipients were converted to Maker-keys or removed by the setup in NotificationInitialize.
+                    // Note: Currently it's always only one recipient.
                     foreach (var recipient in message.RecipientAddresses)
                     {
                         try

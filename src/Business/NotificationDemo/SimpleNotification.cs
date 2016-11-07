@@ -21,18 +21,16 @@ namespace Ascend2016.Business.NotificationDemo
             {
                 _notifier.PostNotificationAsync(new NotificationMessage
                 {
-                    // These needs to be set, but they don't have to match a formatter.
                     ChannelName = "SomeChannelName",
                     TypeName = "SomeTypeName",
 
-                    // These have to be set so the notification knows who sent it, where to go, and what to show.
                     Sender = new NotificationUser("jojoh"),
                     Recipients = new[]
                     {
-                        new NotificationUser("jojoh"), // Note: For demo, so I always get notified.
+                        new NotificationUser("jojoh"),
                         new NotificationUser(page.ChangedBy)
                     },
-                    Subject = "Site Announcement",
+                    Subject = "Page Published",
                     Content = $"{page.ChangedBy} published the page {e.Content.Name}!"
                 });
             }

@@ -12,17 +12,13 @@ namespace Ascend2016.Business.NotificationDemo
     /// include their key in <see cref="NotificationInitialize"/>.
     /// </summary>
     [ServiceConfiguration(typeof(INotificationProvider))]
-    public class IftttNotificationProvider : INotificationProvider, INotificationProviderStatus
+    public class IftttNotificationProvider : INotificationProvider
     {
         // This doesn't have to be here, but it's convenient.
         public const string Name = "IftttNotificationProvider";
 
         /// Implements <see cref="INotificationProvider"/>
         public string ProviderName => Name;
-        /// Implements <see cref="INotificationProviderStatus"/>
-        public bool IsDisabled => DateTime.Now.Year < 2007;
-        /// Implements <see cref="INotificationProviderStatus"/>
-        public string DisabledReason => "The iPhone isn't released yet.";
 
         /// <summary>
         /// Implements <see cref="INotificationProvider"/>.
@@ -31,7 +27,11 @@ namespace Ascend2016.Business.NotificationDemo
         /// <returns>The supported format.</returns>
         public NotificationFormat GetProviderFormat()
         {
-            return new NotificationFormat { MaxLength = 140, SupportsHtml = false };
+            return new NotificationFormat
+            {
+                MaxLength = 140,
+                SupportsHtml = false
+            };
         }
 
         /// <summary>
@@ -69,11 +69,9 @@ namespace Ascend2016.Business.NotificationDemo
 
         #region Not important for Notifications API demonstration
 
-        private const string IftttUri = "https://maker.ifttt.com/trigger/tweets/with/key";
-
         private static void SendToIftttMakerChannel(HttpClient httpClient, ProviderNotificationMessage message, string recipient)
         {
-            var uri = $"{IftttUri}/{recipient}?value1={message.Content}";
+            var uri = $"https://maker.ifttt.com/trigger/tweets/with/key/{recipient}?value1={message.Content}";
             var response = httpClient.GetAsync(uri).Result;
             // Throw an exception if the call failed.
             response.EnsureSuccessStatusCode();

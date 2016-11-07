@@ -5,7 +5,6 @@ using System.Linq;
 using System.Web;
 using EPiServer;
 using EPiServer.Core;
-using EPiServer.DataAbstraction;
 using EPiServer.Framework.Serialization;
 using EPiServer.Notification;
 using EPiServer.PlugIn;
@@ -20,10 +19,9 @@ namespace Ascend2016.Business.NotificationDemo
     /// <summary>
     /// Scheduled job that searches Twitter for shared <see cref="PageData"/> and notifies the users subscribing to it.
     /// </summary>
-    [ScheduledPlugIn(DisplayName = "Twitter Search", IntervalLength = 10, IntervalType = ScheduledIntervalType.Seconds)]
+    [ScheduledPlugIn(DisplayName = "Twitter Search")]
     public class TwitterSearchJob : ScheduledJobBase
     {
-        private const string Sender = "jojoh";
         private readonly Injected<INotifier> _notifier;
         private readonly Injected<ISubscriptionService> _subscriptionService;
         private readonly IObjectSerializer _objectSerializer;
@@ -36,61 +34,45 @@ namespace Ascend2016.Business.NotificationDemo
         /// <returns>True if the subscribers were notified</returns>
         private bool NotifyPageSubscribers(PageData page)
         {
-            // Get Twitter shares for the page
+            // Get Twitter shares for the page.
             var lastShareCount = CountShares(OldTweets(page));
             var currentShareCount = CountShares(GetUpdatedTweets(page));
-
-            // UserNotifications are sent directly and can't be batched in the formatter,
-            // so we only notify if the tweet count doubled.
-            if (currentShareCount <= lastShareCount * 2)
-            {
-                return false;
-            }
+            // UNCOMMENT DURING DEMO
+            // Only notify about double the shares.
+            //if (currentShareCount <= lastShareCount * 2)
+            //{
+            //    return false;
+            //}
 
             // Find relevant notification receivers with the Subscription service
-            var subscriptionKey = PageSubscription.SubscriptionKey(page.ContentLink);
-            var recipients = _subscriptionService.Service.FindSubscribersAsync(subscriptionKey).Result.ToArray();
-            // If there's no one to notify we can skip the rest
-            if (!recipients.Any())
-            {
-                return false;
-            }
+            var key = new Uri(PageSubscription.BaseUri, page.ContentLink.ID.ToString());
+            var recipients = _subscriptionService.Service
+                .FindSubscribersAsync(key)
+                .Result
+                .ToArray();
 
             // Create notification
-            var notificationMessage = CreateNotificationMessage(Sender, recipients, page, currentShareCount);
-
-            // Send the notification
-            _notifier.Service.PostNotificationAsync(notificationMessage).Wait();
-
-            return true;
-        }
-
-        /// <summary>
-        /// Creates the notification message.
-        /// </summary>
-        /// <param name="sender">Author of the message</param>
-        /// <param name="recipients">Recipients of the message</param>
-        /// <param name="page">The page shared on Twitter</param>
-        /// <param name="shareCount">Number of tweets and retweets for the page</param>
-        /// <returns>NotificationMessage with serialized data in the Content property</returns>
-        private NotificationMessage CreateNotificationMessage(string sender, IEnumerable<INotificationUser> recipients, PageData page, int shareCount)
-        {
             var tweetData = new TweetedPageViewModel
             {
                 PageName = page.Name,
-                ShareCount = shareCount,
-                ContentLink = new Uri("epi.cms.contentdata:///" + page.ContentLink)
+                ShareCount = currentShareCount,
+                ContentLink = new Uri($"epi.cms.contentdata:///{page.ContentLink}")
             };
-            var serializedViewModel = _objectSerializer.Serialize(tweetData);
-
-            return new NotificationMessage
+            var notificationMessage = new NotificationMessage
             {
                 ChannelName = NotificationFormatter.ChannelName,
                 TypeName = "TwitterShares",
-                Sender = new NotificationUser(sender),
+                Sender = new NotificationUser("jojoh"),
                 Recipients = recipients,
-                Content = serializedViewModel
+                Content = _objectSerializer.Serialize(tweetData)
             };
+
+            // Send the notification
+            _notifier.Service
+                .PostNotificationAsync(notificationMessage)
+                .Wait();
+
+            return true;
         }
 
         #region Not important for Notifications API demonstration
@@ -113,7 +95,6 @@ namespace Ascend2016.Business.NotificationDemo
             _stopSignaled = true;
         }
 
-        // TODO: Move this to NotificationInitialize?
         private static void SetupTwitterAppAccount()
         {
             var consumerKey = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerKey"];
@@ -173,12 +154,11 @@ namespace Ascend2016.Business.NotificationDemo
 
         private static IEnumerable<ITweet> GetUpdatedTweets(PageData page)
         {
-            // TODO: Search for hashtag instead? My page won't be public during demo.
             // Search Twitter for URL's of the page.
             // Note: For demo purposes I can uncomment these for searches I know will return results.
-            //var tweets = new[] { Tweet.GetTweet(780929654924378112) };
-            //var tweets = Search.SearchTweets("https://medium.com/@shemag8/fuck-you-startup-world-ab6cc72fad0e");
-            var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
+            //var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
+            //var url = "#ascendnordic16";
+            var url = "episerver.com";
             var tweets = Search.SearchTweets(url)?.ToArray();
 
             if (tweets == null)

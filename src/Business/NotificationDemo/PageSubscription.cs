@@ -12,36 +12,31 @@ namespace Ascend2016.Business.NotificationDemo
     [ModuleDependency(typeof(EPiServer.Web.InitializationModule))]
     public class PageSubscription : IInitializableModule
     {
+        public static Uri BaseUri = new Uri("ascend://twitter/content/");
+
         private IContentEvents _contentEvents;
         private ISubscriptionService _subscriptionService;
-        private const string SubscriptionKeyBase = "ascend://twitter/content";
 
         /// <summary>
-        /// Generate a subscription key for a <see cref="ContentReference"/>.
-        /// It's also used publicly to find subscribers for a given page.
+        /// Eventhandler for PublishedContent that adds the page's ChangedBy
+        /// user to a subscription based on the page's ContentLink ID.
         /// </summary>
-        /// <param name="contentLink"></param>
-        /// <returns>Uri to use with <see cref="ISubscriptionService"/>.</returns>
-        public static Uri SubscriptionKey(ContentReference contentLink)
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnPublishedContent(object sender, EPiServer.ContentEventArgs e)
         {
-            return new Uri($"{SubscriptionKeyBase}/{contentLink.ID}");
-        }
+            var page = e.Content as IChangeTrackable;
 
-        /// <summary>
-        /// Add subscribers for a page.
-        /// </summary>
-        /// <param name="contentLink">Used as a subscription key.</param>
-        /// <param name="page">Page with relevant users to subscribe.</param>
-        private void Subscribe(ContentReference contentLink, IChangeTrackable page)
-        {
-            // Create a subscriptionKey
-            var subscriptionKey = SubscriptionKey(contentLink);
+            if (page == null)
+            {
+                return;
+            }
 
-            // Select a notification receiver
-            var receiver = new NotificationUser(page.ChangedBy);
+            // Create a subscription
+            var key = new Uri(BaseUri, e.Content.ContentLink.ID.ToString());
+            var user = new NotificationUser(page.ChangedBy);
 
-            // Subscribe all recipients of the notification, including the sender of the notification
-            _subscriptionService.SubscribeAsync(subscriptionKey, receiver).Wait();
+            _subscriptionService.SubscribeAsync(key, user).Wait();
         }
 
         #region Not important for Notifications API demonstration
@@ -51,29 +46,12 @@ namespace Ascend2016.Business.NotificationDemo
             _contentEvents = context.Locate.Advanced.GetInstance<IContentEvents>();
             _subscriptionService = context.Locate.Advanced.GetInstance<ISubscriptionService>();
 
-            // TMP: Only for demo purposes
-            _subscriptionService.SubscribeAsync(SubscriptionKey(new ContentReference(6)), new NotificationUser("jojoh")).Wait();
-
             _contentEvents.PublishedContent += OnPublishedContent;
         }
 
         public void Uninitialize(InitializationEngine context)
         {
             _contentEvents.PublishedContent -= OnPublishedContent;
-        }
-
-        private void OnPublishedContent(object sender, EPiServer.ContentEventArgs e)
-        {
-            // TODO: Tweet the article?
-
-            var page = e.Content as IChangeTrackable;
-
-            if (page == null)
-            {
-                return;
-            }
-
-            Subscribe(e.Content.ContentLink, page);
         }
 
         #endregion

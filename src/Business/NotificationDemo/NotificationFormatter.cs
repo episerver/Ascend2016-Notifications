@@ -42,24 +42,21 @@ namespace Ascend2016.Business.NotificationDemo
             var groupedMessages = notifications.GroupBy(x => x.Content);
             foreach (var group in groupedMessages)
             {
-                // Use the last message
-                var lastMessage = group.Last();
-
                 // Get the serialized content data
-                var data = _objectSerializer.Deserialize<TweetedPageViewModel>(lastMessage.Content);
+                var data = _objectSerializer.Deserialize<TweetedPageViewModel>(group.Last().Content);
 
-                // Respect the providers Format request. In our case it's the MaxLength.
-                var formattedContent = $@"Your article ""{data.PageName}"" has {data.ShareCount} tweets and retweets!";
+                // Respect the provider's Format.
+                var content = $@"Your article ""{data.PageName}"" has {data.ShareCount} shares!";
                 if (format.MaxLength.HasValue)
                 {
-                    formattedContent = formattedContent.Substring(0, Math.Min(formattedContent.Length, format.MaxLength.Value));
+                    content = content.Substring(0, Math.Min(content.Length, format.MaxLength.Value));
                 }
 
-                // Make sure to get all ID's, to mark them as processed (otherwise the dispatcher will try again with them)
-                var formattedMessage = new FormatterNotificationMessage(group.SelectMany(y => y.ContainedIDs))
-                // Copy over the other properties, and set the formatted content
+                // Mark all ID's as processed (otherwise the dispatcher will try again with them)
+                var messageIds = group.SelectMany(y => y.ContainedIDs);
+                var formattedMessage = new FormatterNotificationMessage(messageIds)
                 {
-                    Content = formattedContent,
+                    Content = content,
                 };
 
                 yield return formattedMessage;

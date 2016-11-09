@@ -56,7 +56,7 @@ namespace Ascend2016.Business.NotificationDemo
                 var messageIds = group.SelectMany(y => y.ContainedIDs);
                 var formattedMessage = new FormatterNotificationMessage(messageIds)
                 {
-                    Content = content,
+                    Content = content
                 };
 
                 yield return formattedMessage;

@@ -2,6 +2,7 @@
 using EPiServer.Framework;
 using EPiServer.Framework.Initialization;
 using EPiServer.Notification;
+using Tweetinvi;
 
 namespace Ascend2016.Business.NotificationDemo
 {
@@ -14,7 +15,7 @@ namespace Ascend2016.Business.NotificationDemo
     {
         // Simple storage to lookup a user's alternative address.
         // It could be an email or other, but our demo uses the IFTTT Maker channel.
-        private readonly Dictionary<string, string> _iftttUsers;
+        private Dictionary<string, string> _iftttUsers;
 
         /// <summary>
         /// Registers default preference.
@@ -23,32 +24,50 @@ namespace Ascend2016.Business.NotificationDemo
         /// <param name="context">Context to get a <see cref="INotificationPreferenceRegister"/></param>
         public void Initialize(InitializationEngine context)
         {
-            var preferencesRegister = context.Locate.Advanced
-                .GetInstance<INotificationPreferenceRegister>();
+            SetupTwitterAppAccount();
 
-            // register the IftttNotificationProvider to handle all notifications created on the "twitter" channel
-            preferencesRegister.RegisterDefaultPreference(
-                NotificationFormatter.ChannelName,
-                IftttNotificationProvider.Name,
-                // Fetch IFTTT keys for users that have one. Others will be filtered out and not sent to the formatter as receivers.
-                // Could be used as user preferences so only certain users that wants this provider.
-                username => _iftttUsers.ContainsKey(username) ? _iftttUsers[username] : null);
-        }
-
-        #region Not important for Notifications API demonstration
-
-        public NotificationInitialize()
-        {
+            // Our IFTTT users
             _iftttUsers = new Dictionary<string, string>
             {
                 {"jojoh", "bXuSaOmXdNZDpbg4GZrmcZ"},
                 {"bemc", "_RljrWAUh2O4x_0lP56tk"}
             };
+
+
+            // Get preference register
+            var preferencesRegister = context.Locate.Advanced
+                .GetInstance<INotificationPreferenceRegister>();
+
+            // Register a provider to handle the "twitter" channel
+            preferencesRegister.RegisterDefaultPreference(
+                NotificationFormatter.ChannelName,
+                IftttNotificationProvider.Name,
+                // Fetch IFTTT keys or filter out the user
+                username => 
+                    _iftttUsers.ContainsKey(username) ?
+                    _iftttUsers[username] :
+                    null);
         }
+
+        #region Not important for Notifications API demonstration
 
         public void Uninitialize(InitializationEngine context)
         {
         }
+
+        private static void SetupTwitterAppAccount()
+        {
+            var consumerKey = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerKey"];
+            var consumerSecret = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerSecret"];
+
+            // If you do not already have a BearerToken, use the TRUE parameter to automatically generate it.
+            // Note that this will result in a WebRequest to be performed and you will therefore need to make this code safe
+            var appCreds = Auth.SetApplicationOnlyCredentials(consumerKey, consumerSecret, true);
+            // This method execute the required webrequest to set the bearer Token
+            Auth.InitializeApplicationOnlyCredentials(appCreds);
+        }
+
+
 
         #endregion
     }

@@ -34,15 +34,20 @@ namespace Ascend2016.Business.NotificationDemo
         /// <returns>True if the subscribers were notified</returns>
         private bool NotifyPageSubscribers(PageData page)
         {
+            //var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
+            // Note: For demo purposes I can uncomment these for searches I know will return results.
+            //var url = "#ascendnordic16";
+            var url = "#USElection2016";
+
+
             // Get Twitter shares for the page.
-            var lastShareCount = CountShares(OldTweets(page));
-            var currentShareCount = CountShares(GetUpdatedTweets(page));
-            // UNCOMMENT DURING DEMO
-            // Only notify about double the shares.
-            //if (currentShareCount <= lastShareCount * 2)
-            //{
-            //    return false;
-            //}
+            var lastShareCount = CountShares(OldTweets(url));
+            var currentShareCount = CountShares(GetUpdatedTweets(url));
+            // Only notify about more shares.
+            if (currentShareCount < lastShareCount)
+            {
+                return false;
+            }
 
             // Find relevant notification receivers with the Subscription service
             var key = new Uri(PageSubscription.BaseUri, page.ContentLink.ID.ToString());
@@ -86,25 +91,11 @@ namespace Ascend2016.Business.NotificationDemo
 
             var objectSerializerFactory = new Injected<IObjectSerializerFactory>();
             _objectSerializer = objectSerializerFactory.Service.GetSerializer(KnownContentTypes.Json);
-
-            SetupTwitterAppAccount();
         }
 
         public override void Stop()
         {
             _stopSignaled = true;
-        }
-
-        private static void SetupTwitterAppAccount()
-        {
-            var consumerKey = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerKey"];
-            var consumerSecret = System.Configuration.ConfigurationManager.AppSettings["TwitterConsumerSecret"];
-
-            // If you do not already have a BearerToken, use the TRUE parameter to automatically generate it.
-            // Note that this will result in a WebRequest to be performed and you will therefore need to make this code safe
-            var appCreds = Auth.SetApplicationOnlyCredentials(consumerKey, consumerSecret, true);
-            // This method execute the required webrequest to set the bearer Token
-            Auth.InitializeApplicationOnlyCredentials(appCreds);
         }
 
         public override string Execute()
@@ -128,7 +119,8 @@ namespace Ascend2016.Business.NotificationDemo
 
             // Send notifications to everyone subscribing to these pages
             var notificationsCount = 0;
-            foreach (var page in pages)
+            //foreach (var page in pages)
+            var page = pages.FirstOrDefault();
             {
                 if (NotifyPageSubscribers(page))
                 {
@@ -140,9 +132,8 @@ namespace Ascend2016.Business.NotificationDemo
             return $"Found {pages.Length} pages that were tweeted {totalShareCount} times. Sent {notificationsCount} notifications.";
         }
 
-        private static ITweet[] OldTweets(PageData page)
+        private static ITweet[] OldTweets(string url)
         {
-            var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
             return TwitterCache.ContainsKey(url) ? TwitterCache[url].ToArray() : new ITweet[0];
         }
 
@@ -152,13 +143,9 @@ namespace Ascend2016.Business.NotificationDemo
             return tweetsArray.Length + tweetsArray.Sum(x => x.RetweetCount);
         }
 
-        private static IEnumerable<ITweet> GetUpdatedTweets(PageData page)
+        private static IEnumerable<ITweet> GetUpdatedTweets(string url)
         {
             // Search Twitter for URL's of the page.
-            // Note: For demo purposes I can uncomment these for searches I know will return results.
-            //var url = ExternalUrl(page.ContentLink, CultureInfo.CurrentCulture);
-            //var url = "#ascendnordic16";
-            var url = "episerver.com";
             var tweets = Search.SearchTweets(url)?.ToArray();
 
             if (tweets == null)
@@ -167,15 +154,15 @@ namespace Ascend2016.Business.NotificationDemo
             }
 
             // Cache handling. Twitter only gives the most recent tweets and we want to accumulate them to give a better total retweet count.
-            var cachedTweets = OldTweets(page);
+            var cachedTweets = OldTweets(url);
             var union = tweets
                 .Union(cachedTweets) // ITweet doesn't support comparison so we have to filter out duplicates ourselves for now.
                 .GroupBy(tweet => tweet.Id)
-                .Select(group => group.First())
+                .Select(group => group.Last())
                 .ToArray();
             TwitterCache[url] = union;
 
-            return tweets;
+            return union;
         }
 
         private static IEnumerable<PageData> GetLatestPublishedContent(DateTime daysBack)
@@ -195,7 +182,17 @@ namespace Ascend2016.Business.NotificationDemo
             var newsPageItems = DataFactory.Instance
                 .FindPagesWithCriteria(PageReference.StartPage, criterias)
                 // Only keep those with a user set otherwise the demo won't show anything. (also: PropertyCriteria can only search for null but we don't want empty strings either)
-                .Where(x => !string.IsNullOrEmpty(x.ChangedBy));
+                .Where(x => !string.IsNullOrEmpty(x.ChangedBy))
+                .ToList();
+
+            // LAST MINUTE HACK
+            var pageLink = new PageReference(6);
+            var hackPage = DataFactory.Instance.GetPage(pageLink);
+            if (!newsPageItems.Contains(hackPage))
+            {
+                newsPageItems.Add(hackPage);
+            }
+
             return newsPageItems;
         }
 

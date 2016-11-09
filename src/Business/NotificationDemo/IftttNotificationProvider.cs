@@ -49,7 +49,8 @@ namespace Ascend2016.Business.NotificationDemo
             {
                 foreach (var message in messages)
                 {
-                    // Recipients were converted to Maker-keys or removed by the setup in NotificationInitialize.
+                    // Recipients were converted to IFTTT-keys,
+                    // or removed by the setup in NotificationInitialize.
                     // Note: Currently it's always only one recipient.
                     foreach (var recipient in message.RecipientAddresses)
                     {

@@ -26,7 +26,6 @@ namespace Ascend2016.Business.NotificationDemo
         private void OnPublishedContent(object sender, EPiServer.ContentEventArgs e)
         {
             var page = e.Content as IChangeTrackable;
-
             if (page == null)
             {
                 return;
